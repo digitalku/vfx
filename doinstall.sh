@@ -15,7 +15,7 @@ Type=Application
 Name=MT Manager
 Comment=MT Manager App
 Exec=python3 $HOME/vfx/apps/mt_manager.py
-Icon=$HOME/vfx/apps/mt_manager.ico
+Icon=$HOME/vfx/apps/mt_manager.png
 Terminal=false
 StartupNotify=true
 EOF
