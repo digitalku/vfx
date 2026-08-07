@@ -1,7 +1,7 @@
 """
 widgets.py — MT Manager
 Semua custom tkinter widget yang reusable:
-  RoundedBox, RoundScrollbar, Tooltip, Badge, ProgressBar, make_pill_btn
+  RoundedBox, RoundScrollbar, Tooltip, Badge, ProgressBar, make_pill_btn, Toast
 """
 
 import tkinter as tk
@@ -9,6 +9,7 @@ import tkinter.font as tkf
 from system import (
     BG, BG2, BG3, BG4, BORDER, BORDER2, ACCENT, ACCENT2, ACCENT3,
     FG, FG2, FG3, DANGER, WARN, FONT, FONT_MONO,
+    TOAST_DURATION_MS, TOAST_MARGIN, TOAST_FADE_MS, TOAST_FADE_STEP,
 )
 
 # ── Font cache ────────────────────────────────────────────────────────────────
@@ -499,6 +500,121 @@ class ProgressBar(tk.Canvas):
         if fw > 0:
             self.create_rectangle(0, 0, fw, h, fill=self._fill, outline="")
         self._last_pct = self._pct
+
+
+# ── Toast ─────────────────────────────────────────────────────────────────────
+class Toast:
+    """Borderless notification pinned to the bottom-right of its parent window,
+    which fades out and destroys itself after duration_ms. Clicking it dismisses
+    it early.
+
+    Only one toast exists at a time: building a new one closes the one on
+    screen, so a burst of events cannot stack overlapping windows.
+    """
+
+    _current = None
+
+    def __init__(self, parent, title: str, message: str = "",
+                 icon: str = "✓", icon_fg: str = ACCENT3,
+                 duration_ms: int = TOAST_DURATION_MS):
+        if Toast._current is not None:
+            Toast._current.close()
+        Toast._current = self
+
+        self.parent    = parent
+        self._closed   = False
+        self._after_id = None
+        _f = resolve_font(FONT)
+
+        self.win = tk.Toplevel(parent)
+        self.win.withdraw()
+        self.win.wm_overrideredirect(True)
+        try:
+            self.win.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+
+        outer = tk.Frame(self.win, bg=BORDER2, padx=1, pady=1)
+        outer.pack(fill="both", expand=True)
+        inner = tk.Frame(outer, bg=BG3, padx=16, pady=12)
+        inner.pack(fill="both", expand=True)
+
+        tk.Label(inner, text=icon, bg=BG3, fg=icon_fg,
+                 font=(_f, 15)).pack(side="left", padx=(0, 12))
+        col = tk.Frame(inner, bg=BG3)
+        col.pack(side="left", fill="both", expand=True)
+        tk.Label(col, text=title, bg=BG3, fg=FG, font=(_f, 10, "bold"),
+                 anchor="w").pack(fill="x")
+        if message:
+            tk.Label(col, text=message, bg=BG3, fg=FG3, font=(_f, 9),
+                     anchor="w", justify="left").pack(fill="x", pady=(2, 0))
+
+        self._bind_click(self.win)
+
+        self.win.update_idletasks()
+        self._place()
+        self.win.deiconify()
+        self._after_id = parent.after(duration_ms, self._fade_out)
+
+    def _bind_click(self, widget):
+        """Dismiss on click anywhere — labels swallow clicks on the frame."""
+        widget.bind("<Button-1>", lambda _e: self.close())
+        for child in widget.winfo_children():
+            self._bind_click(child)
+
+    def _place(self):
+        """Anchor to the parent's bottom-right corner, clamped so a toast wider
+        than the window still starts inside it."""
+        try:
+            px, py = self.parent.winfo_rootx(), self.parent.winfo_rooty()
+            pw, ph = self.parent.winfo_width(), self.parent.winfo_height()
+        except tk.TclError:
+            return
+        w = self.win.winfo_reqwidth()
+        h = self.win.winfo_reqheight()
+        x = max(px, px + pw - w - TOAST_MARGIN)
+        y = max(py, py + ph - h - TOAST_MARGIN)
+        self.win.wm_geometry(f"+{x}+{y}")
+
+    def _fade_out(self, alpha: float = 1.0):
+        alpha -= TOAST_FADE_STEP
+        if self._closed or alpha <= 0:
+            self.close()
+            return
+        try:
+            self.win.attributes("-alpha", alpha)
+        except tk.TclError:
+            self.close()
+            return
+        self._after_id = self.parent.after(
+            TOAST_FADE_MS, lambda: self._fade_out(alpha))
+
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        if self._after_id is not None:
+            try:
+                self.parent.after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None
+        if Toast._current is self:
+            Toast._current = None
+        try:
+            self.win.destroy()
+        except Exception:
+            pass
+
+
+def show_toast(parent, title: str, message: str = "", icon: str = "✓",
+               icon_fg: str = ACCENT3, duration_ms: int = TOAST_DURATION_MS):
+    """Convenience wrapper around Toast. Never raises — a notification must not
+    be able to take the app down."""
+    try:
+        return Toast(parent, title, message, icon, icon_fg, duration_ms)
+    except Exception:
+        return None
 
 
 # ── Popup helper ──────────────────────────────────────────────────────────────

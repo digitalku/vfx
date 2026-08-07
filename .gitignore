@@ -1,3 +1,5 @@
 update.sh
 install.sh
 CLAUDE.md
+__pycache__/
+*.pyc

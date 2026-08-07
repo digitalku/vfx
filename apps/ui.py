@@ -16,7 +16,7 @@ import system as be
 import update as upd
 from widgets import (
     RoundedBox, RoundScrollbar, Tooltip, Badge, ProgressBar,
-    make_pill_btn, themed_popup, resolve_font, get_font_obj,
+    make_pill_btn, themed_popup, show_toast, resolve_font, get_font_obj,
 )
 from system import (
     __version__,
@@ -1786,13 +1786,13 @@ class MTManager:
         be.wget_download_bg(url, DOCS_DIR, _on_success, _on_error, _on_timeout)
 
     # ── Open MT / MetaEditor ──────────────────────────────────────────────────
-    def _set_btn_busy(self, key: str, canvas, idle_label: str, busy: bool,
-                      lock: bool = True):
-        """Show/clear the "Please Wait" label on a pill button.
+    def _set_btn_busy(self, key: str, canvas, idle_label: str, busy_label: str,
+                      busy: bool, lock: bool = True):
+        """Show/clear a waiting label on a pill button.
 
         There is nothing to wait on: wine_launch_bg calls back as soon as Popen
         returns, long before the Wine window appears. So the busy state is held
-        for OPEN_MT_BUSY_MS and then released on a timer; a failed launch
+        for LAUNCH_BUSY_MS and then released on a timer; a failed launch
         releases it immediately.
 
         lock=True also blocks clicks, which stops an impatient double click from
@@ -1807,10 +1807,11 @@ class MTManager:
         if busy:
             if lock:
                 canvas.set_enabled(False)
-            canvas.set_text(be.OPEN_MT_BUSY_TEXT, FG3)
+            canvas.set_text(busy_label, FG3)
             self._busy_after[key] = self.root.after(
-                be.OPEN_MT_BUSY_MS,
-                lambda: self._set_btn_busy(key, canvas, idle_label, False, lock))
+                be.LAUNCH_BUSY_MS,
+                lambda: self._set_btn_busy(key, canvas, idle_label, busy_label,
+                                           False, lock))
         else:
             canvas.set_text(idle_label)
             if lock:
@@ -1818,14 +1819,15 @@ class MTManager:
 
     def _open_mt_busy(self, busy: bool):
         self._set_btn_busy("open_mt", self._open_mt_btn_canvas,
-                           OPEN_MT_LABEL, busy)
+                           OPEN_MT_LABEL, be.LAUNCH_BUSY_TEXT, busy)
 
     def _metaeditor_busy(self, busy: bool):
         # Anchored on the Utility button: the "Open MetaEditor" row lives in a
         # dropdown that closes on click, so there is no menu item left to label.
-        # Kept clickable so Clear Logs / Ticks / Cache stay reachable meanwhile.
+        # Kept clickable so Clear Logs / Ticks / Cache stay reachable meanwhile,
+        # and deliberately short so the buttons to its right barely move.
         self._set_btn_busy("metaeditor", self._utility_btn_canvas,
-                           UTILITY_LABEL, busy, lock=False)
+                           UTILITY_LABEL, be.UTILITY_BUSY_TEXT, busy, lock=False)
 
     def open_mt(self):
         t = self._terminal()
@@ -3320,49 +3322,19 @@ class MTManager:
             self._show_scan_result(found)
 
     def _show_scan_result(self, found):
-        f  = self._font
-        mt4_count = sum(1 for t in found if t["type"] == "MT4")
-        mt5_count = sum(1 for t in found if t["type"] == "MT5")
+        """Scan result as a self-dismissing toast rather than a modal dialog:
+        the terminal list is already on screen behind it, so there is nothing
+        here worth making the user click OK for."""
         n = len(found)
-
-        dlg = tk.Toplevel(self.root); dlg.title("Scan Complete")
-        dlg.configure(bg=BG); dlg.resizable(False, False); dlg.attributes("-topmost", True)
-        hdr = tk.Frame(dlg, bg=BG2, height=48); hdr.pack(fill="x"); hdr.pack_propagate(False)
-        hdr_inner = tk.Frame(hdr, bg=BG2, padx=20); hdr_inner.pack(fill="both", expand=True)
-        tk.Label(hdr_inner, text="\u2713  Scan Complete",
-                 bg=BG2, fg="#5ecf3e", font=(f, 12, "bold")).pack(side="left", fill="y")
-        tk.Frame(dlg, bg=BORDER, height=1).pack(fill="x")
-        body = tk.Frame(dlg, bg=BG, padx=24, pady=18); body.pack(fill="both", expand=True)
-        tk.Label(body, text="\u2713", bg=BG, fg="#5ecf3e",
-                 font=(f, 22)).grid(row=0, column=0, rowspan=3, padx=(0,16), sticky="n")
-        tk.Label(body, text=f"Found {n} MetaTrader terminal(s).",
-                 bg=BG, fg=FG, font=(f, 11, "bold"), anchor="w").grid(row=0, column=1, sticky="w")
-        info_box = tk.Frame(body, bg=BG3, padx=14, pady=10)
-        info_box.grid(row=1, column=1, sticky="ew", pady=(10,0))
-        body.columnconfigure(1, weight=1)
-        for lbl, val, clr in [("MetaTrader 4", f"{mt4_count} terminal", ACCENT),
-                               ("MetaTrader 5", f"{mt5_count} terminal", ACCENT),
-                               ("Total",        f"{n} terminal",         FG)]:
-            row = tk.Frame(info_box, bg=BG3); row.pack(fill="x", pady=2)
-            tk.Label(row, text=f"{lbl:<14}", bg=BG3, fg=FG3,
-                     font=(f, 9), anchor="w", width=14).pack(side="left")
-            tk.Label(row, text=val, bg=BG3, fg=clr,
-                     font=(f, 9, "bold"), anchor="w").pack(side="left")
-        if found:
-            tk.Frame(info_box, bg=BORDER, height=1).pack(fill="x", pady=(8,6))
-            for t in found[:8]:
-                tk.Label(info_box, text=f"  {t['type']}  {t['name']}",
-                         bg=BG3, fg=FG3, font=(f, 8), anchor="w").pack(anchor="w")
-            if len(found) > 8:
-                tk.Label(info_box, text=f"  \u2026 and {len(found)-8} more",
-                         bg=BG3, fg=FG3, font=(f, 8), anchor="w").pack(anchor="w")
-        tk.Frame(dlg, bg=BORDER, height=1).pack(fill="x")
-        foot = tk.Frame(dlg, bg=BG2, height=44); foot.pack(fill="x"); foot.pack_propagate(False)
-        fi = tk.Frame(foot, bg=BG2, padx=12); fi.pack(fill="both", expand=True)
-        oh, _ = make_pill_btn(fi, "OK", dlg.destroy, bg=BG3, fg=FG, hover_bg=BG4,
-                              font_size=9, padx=20, pady=6, radius=7)
-        oh.pack(side="right", pady=8)
-        dlg.update_idletasks(); self._center_win(dlg); dlg.deiconify(); dlg.lift(); dlg.focus_force()
+        if not n:
+            show_toast(self.root, "No terminals found",
+                       "No MetaTrader installation detected under Wine.",
+                       icon="!", icon_fg=WARN)
+            return
+        mt4 = sum(1 for t in found if t["type"] == "MT4")
+        mt5 = n - mt4
+        show_toast(self.root, f"Found {n} terminal(s)",
+                   f"MetaTrader 4: {mt4}     MetaTrader 5: {mt5}")
 
     # ── Utility ───────────────────────────────────────────────────────────────
     def _raise_self(self):

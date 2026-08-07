@@ -275,15 +275,34 @@ CHK_CHAR_OFF  = "\u25a1"
 CHK_CHAR_ON   = "\u2713"
 TABLE_ROW_HEIGHT = 30
 
-# ── Open MetaTrader busy state ────────────────────────────────────────────────
+# ── Wine launch busy state ────────────────────────────────────────────────────
 # Wine needs several seconds before the terminal window actually shows up, but
 # wine_launch_bg reports success the moment Popen returns — there is no signal
 # that says "the window is up". So the toolbar button holds a "Please Wait"
 # label for a fixed duration and then restores itself. A failed launch clears
-# it early. Keep the glyph identical to the button's own so the label does not
-# jump; this one is known to render with the fonts in FONT.
-OPEN_MT_BUSY_MS   = 12000
-OPEN_MT_BUSY_TEXT = "▶ Please Wait…"
+# it early.
+#
+# Each label reuses the glyph of the button it replaces, so only the words
+# change; both glyphs are known to render with the fonts in FONT.
+#
+# Open MetaTrader is the last button in the toolbar, so its label may be any
+# width — nothing sits to its right to be pushed around. Utility sits second,
+# so its busy label is kept close to "Utility" in width; a long one would shove
+# every button after it sideways for the whole wait.
+LAUNCH_BUSY_MS     = 12000
+LAUNCH_BUSY_TEXT   = "▶ Please Wait…"
+UTILITY_BUSY_TEXT  = "⚒ Wait…"
+
+# ── Toast ─────────────────────────────────────────────────────────────────────
+# Transient notification anchored to the bottom-right of the main window.
+# TOAST_FADE_STEP is the alpha removed per TOAST_FADE_MS tick, so the fade lasts
+# roughly (1 / step) * TOAST_FADE_MS. Window alpha needs a compositor on X11; if
+# there is none the toast simply stays opaque until it is destroyed, which is an
+# acceptable fallback.
+TOAST_DURATION_MS = 4000
+TOAST_MARGIN      = 24
+TOAST_FADE_MS     = 40
+TOAST_FADE_STEP   = 0.12
 
 # ── Archive types ─────────────────────────────────────────────────────────────
 EXTRACT_EXTS = {".zip", ".rar", ".tar", ".gz", ".bz2", ".xz", ".7z",
