@@ -1,5 +1,17 @@
 [
   {
+    "version": "3.0",
+    "date": "2026-08-07",
+    "title": "Toast & Smarter Scan",
+    "changes": [
+      ["new", "Scan result now appears as a toast that dismisses itself after a few seconds."],
+      ["new", "Open MetaTrader and MetaEditor show a waiting state while Wine starts up."],
+      ["improve", "Toolbar button renamed from \"Open MT\" to \"Open MetaTrader\"."],
+      ["fix", "Auto-scan after a broker install now waits for the installer to finish instead of running too early."],
+      ["fix", "Duplicate dialog no longer asks for a manual scan while auto-scan is already running."]
+    ]
+  },
+  {
     "version": "2.4",
     "date": "2026-07-13",
     "title": "Tick & Cache Scan",

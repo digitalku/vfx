@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from urllib.request import urlopen, Request
 
-__version__ = "2.4"
+__version__ = "3.0"
 
 # ── Changelog ───────────────────────────────────────────────────────────────
 # Data catatan rilis dipisah ke file changelog.json (di folder yang sama dengan
