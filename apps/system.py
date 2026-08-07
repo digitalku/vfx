@@ -275,6 +275,16 @@ CHK_CHAR_OFF  = "\u25a1"
 CHK_CHAR_ON   = "\u2713"
 TABLE_ROW_HEIGHT = 30
 
+# ── Open MetaTrader busy state ────────────────────────────────────────────────
+# Wine needs several seconds before the terminal window actually shows up, but
+# wine_launch_bg reports success the moment Popen returns — there is no signal
+# that says "the window is up". So the toolbar button holds a "Please Wait"
+# label for a fixed duration and then restores itself. A failed launch clears
+# it early. Keep the glyph identical to the button's own so the label does not
+# jump; this one is known to render with the fonts in FONT.
+OPEN_MT_BUSY_MS   = 12000
+OPEN_MT_BUSY_TEXT = "▶ Please Wait…"
+
 # ── Archive types ─────────────────────────────────────────────────────────────
 EXTRACT_EXTS = {".zip", ".rar", ".tar", ".gz", ".bz2", ".xz", ".7z",
                 ".tar.gz", ".tar.bz2", ".tar.xz"}

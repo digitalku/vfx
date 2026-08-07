@@ -351,7 +351,13 @@ class Tooltip:
 def make_pill_btn(parent, text, cmd, bg=BG3, fg=FG, hover_bg=BG4,
                   font_size=10, padx=12, pady=6, radius=10,
                   fill_x=False) -> tuple:
-    """Buat tombol pill rounded. Return (holder_frame, canvas)."""
+    """Build a rounded pill button. Return (holder_frame, canvas).
+
+    The returned canvas carries two extra helpers so a caller can turn a button
+    into a transient state (e.g. "Please Wait") without rebuilding it:
+      canvas.set_text(text, fg_color=None) — swap the label and resize to fit
+      canvas.set_enabled(flag)             — ignore clicks/hover while disabled
+    """
     _f   = resolve_font(FONT)
     _fnt = get_font_obj(_f, font_size, "bold")
 
@@ -360,7 +366,8 @@ def make_pill_btn(parent, text, cmd, bg=BG3, fg=FG, hover_bg=BG4,
                        highlightthickness=0, cursor="hand2")
     canvas.pack(fill="x" if fill_x else "none")
 
-    _state    = {"bg": bg, "lw": 0, "lh": 0}
+    _state    = {"bg": bg, "lw": 0, "lh": 0,
+                 "text": text, "fg": fg, "enabled": True}
     _ftuple   = (_f, font_size, "bold")
     _pts_cache = [None]
 
@@ -378,16 +385,48 @@ def make_pill_btn(parent, text, cmd, bg=BG3, fg=FG, hover_bg=BG4,
             _state["lh"] = h
         canvas.delete("all")
         canvas.create_polygon(_pts_cache[0], smooth=True, fill=bcolor, outline="")
-        canvas.create_text(w//2, h//2, text=text, fill=fg, font=_ftuple)
+        canvas.create_text(w//2, h//2, text=_state["text"], fill=_state["fg"],
+                           font=_ftuple)
 
-    def _enter(_=None): _state["bg"] = hover_bg; _draw(hover_bg)
-    def _leave(_=None): _state["bg"] = bg;        _draw(bg)
-    def _click(_=None): cmd()
+    def _enter(_=None):
+        if not _state["enabled"]:
+            return
+        _state["bg"] = hover_bg
+        _draw(hover_bg)
+
+    def _leave(_=None):
+        if not _state["enabled"]:
+            return
+        _state["bg"] = bg
+        _draw(bg)
+
+    def _click(_=None):
+        if _state["enabled"]:
+            cmd()
+
+    def _set_text(new_text, fg_color=None):
+        """Swap the label (fg_color=None restores the original color).
+        Width is recomputed so a longer label is not clipped."""
+        _state["text"] = new_text
+        _state["fg"]   = fg_color or fg
+        if not fill_x:
+            canvas.config(width=_fnt.measure(new_text) + padx * 2)
+        _draw()
+
+    def _set_enabled(flag: bool):
+        """Disabled buttons ignore clicks and hover, and show a busy cursor."""
+        _state["enabled"] = bool(flag)
+        canvas.config(cursor="hand2" if flag else "watch")
+        _state["bg"] = bg
+        _draw(bg)
 
     canvas.bind("<Configure>", lambda e: _draw())
     canvas.bind("<Enter>",     _enter)
     canvas.bind("<Leave>",     _leave)
     canvas.bind("<Button-1>",  _click)
+
+    canvas.set_text    = _set_text
+    canvas.set_enabled = _set_enabled
 
     rw = _fnt.measure(text) + padx * 2
     rh = _fnt.metrics("linespace") + pady * 2

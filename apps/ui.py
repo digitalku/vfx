@@ -31,6 +31,11 @@ from system import (
     TABLE_ROW_HEIGHT, DOCS_DIR,
 )
 
+# Toolbar labels. Each is referenced from the button list, the tooltip map and
+# the busy-state handler that restores it, so keep them in one place.
+OPEN_MT_LABEL = "▶ Open MetaTrader"
+UTILITY_LABEL = "⚒ Utility"
+
 
 class MTManager:
     def __init__(self, root):
@@ -65,6 +70,9 @@ class MTManager:
         self._select_after_id       = None
         self._last_selected_path    = None
         self._install_win           = None   # guard window Install MT
+        self._open_mt_btn_canvas    = None   # set in _build_ui
+        self._utility_btn_canvas    = None   # set in _build_ui
+        self._busy_after: dict      = {}     # busy key -> pending after-id
 
         # Clipboard: list of (src_path, fname, cat) + mode "copy"|"cut"
         self._clipboard: list       = []
@@ -258,16 +266,16 @@ class MTManager:
         _btns = [
             ("\u2699 Manage EA / Indicator", self._manage_ea_menu,
              ACCENT_DIM, ACCENT, "#1d2b36"),
-            ("\u2692 Utility", self._utility_menu, "#261a05", WARN, "#3d2a08"),
+            (UTILITY_LABEL, self._utility_menu, "#261a05", WARN, "#3d2a08"),
             None,  # separator
             ("\u25a6 Browse", self.browse_files, BG3, FG, BG4),
-            ("\u25b6 Open MT", self.open_mt, "#0d2200", "#5ecf3e", "#1a3a00"),
+            (OPEN_MT_LABEL, self.open_mt, "#0d2200", "#5ecf3e", "#1a3a00"),
         ]
         _tooltips = {
             "\u2699 Manage EA / Indicator": "Install or remove EA / Indicator on MT",
-            "\u2692 Utility": "Clear Logs / Ticks / Cache and open MetaEditor",
+            UTILITY_LABEL: "Clear Logs / Ticks / Cache and open MetaEditor",
             "\u25a6 Browse": "Open MT data folder",
-            "\u25b6 Open MT": "Run the selected MT terminal",
+            OPEN_MT_LABEL: "Run the selected MT terminal",
         }
 
         for item in _btns:
@@ -282,8 +290,11 @@ class MTManager:
                 self._manage_ea_btn_holder = h
                 self._install_btn_holder = h   # legacy alias
                 self._install_btn_canvas = c
-            elif lbl == "\u2692 Utility":
+            elif lbl == UTILITY_LABEL:
                 self._utility_btn_holder = h
+                self._utility_btn_canvas = c
+            elif lbl == OPEN_MT_LABEL:
+                self._open_mt_btn_canvas = c
             if lbl in _tooltips:
                 Tooltip(c, _tooltips[lbl])
 
@@ -1775,6 +1786,47 @@ class MTManager:
         be.wget_download_bg(url, DOCS_DIR, _on_success, _on_error, _on_timeout)
 
     # ── Open MT / MetaEditor ──────────────────────────────────────────────────
+    def _set_btn_busy(self, key: str, canvas, idle_label: str, busy: bool,
+                      lock: bool = True):
+        """Show/clear the "Please Wait" label on a pill button.
+
+        There is nothing to wait on: wine_launch_bg calls back as soon as Popen
+        returns, long before the Wine window appears. So the busy state is held
+        for OPEN_MT_BUSY_MS and then released on a timer; a failed launch
+        releases it immediately.
+
+        lock=True also blocks clicks, which stops an impatient double click from
+        launching a second process. Pass lock=False for a button that only opens
+        a menu — blocking it would lock the user out of unrelated actions.
+        """
+        if canvas is None:
+            return
+        after_id = self._busy_after.pop(key, None)
+        if after_id is not None:
+            self.root.after_cancel(after_id)
+        if busy:
+            if lock:
+                canvas.set_enabled(False)
+            canvas.set_text(be.OPEN_MT_BUSY_TEXT, FG3)
+            self._busy_after[key] = self.root.after(
+                be.OPEN_MT_BUSY_MS,
+                lambda: self._set_btn_busy(key, canvas, idle_label, False, lock))
+        else:
+            canvas.set_text(idle_label)
+            if lock:
+                canvas.set_enabled(True)
+
+    def _open_mt_busy(self, busy: bool):
+        self._set_btn_busy("open_mt", self._open_mt_btn_canvas,
+                           OPEN_MT_LABEL, busy)
+
+    def _metaeditor_busy(self, busy: bool):
+        # Anchored on the Utility button: the "Open MetaEditor" row lives in a
+        # dropdown that closes on click, so there is no menu item left to label.
+        # Kept clickable so Clear Logs / Ticks / Cache stay reachable meanwhile.
+        self._set_btn_busy("metaeditor", self._utility_btn_canvas,
+                           UTILITY_LABEL, busy, lock=False)
+
     def open_mt(self):
         t = self._terminal()
         if not t:
@@ -1786,7 +1838,9 @@ class MTManager:
                 f"File {name} not found for {t['name']} ({t['type']})\n"
                 f"Folder: {t['path']}")
             return
-        self._wine_launch(exe, f"{t['name']} ({t['type']})")
+        self._open_mt_busy(True)
+        self._wine_launch(exe, f"{t['name']} ({t['type']})",
+                          on_failed=lambda: self._open_mt_busy(False))
 
     def open_metaeditor(self):
         t = self._terminal()
@@ -1799,21 +1853,28 @@ class MTManager:
                 f"File {name} not found for {t['name']} ({t['type']})\n"
                 f"Folder: {t['path']}")
             return
-        self._wine_launch(exe, f"MetaEditor {t['name']} ({t['type']})")
+        self._metaeditor_busy(True)
+        self._wine_launch(exe, f"MetaEditor {t['name']} ({t['type']})",
+                          on_failed=lambda: self._metaeditor_busy(False))
 
-    def _wine_launch(self, exe_path, label: str):
+    def _wine_launch(self, exe_path, label: str, on_failed=None):
+        """Launch exe_path under Wine. on_failed() runs on the main thread
+        before the error popup, so the caller can undo any busy state."""
         self._status(f"Opening {label}\u2026")
         def _on_success():
             self.root.after(0, lambda: self._status(f"{label} is opening."))
         def _on_error(reason):
-            if reason == "wine_not_found":
-                self.root.after(0, lambda: themed_popup(self.root, "error",
-                    "Wine Not Found",
-                    "The 'wine' command is not available.\n"
-                    "Install wine first:\n  sudo apt install wine"))
-            else:
-                self.root.after(0, lambda r=reason: themed_popup(self.root, "error",
-                    "Failed", f"Cannot open {label}:\n{r}"))
+            def _ui(r=reason):
+                if on_failed:
+                    on_failed()
+                if r == "wine_not_found":
+                    themed_popup(self.root, "error", "Wine Not Found",
+                        "The 'wine' command is not available.\n"
+                        "Install wine first:\n  sudo apt install wine")
+                else:
+                    themed_popup(self.root, "error", "Failed",
+                        f"Cannot open {label}:\n{r}")
+            self.root.after(0, _ui)
         be.wine_launch_bg(exe_path, _on_success, _on_error)
 
     # ── Uninstall MT ──────────────────────────────────────────────────────────
