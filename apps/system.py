@@ -220,6 +220,7 @@ BORDER      = "#1c2438"
 BORDER2     = "#263045"
 DANGER      = "#ff5b5b"
 WARN        = "#f0a030"
+SUCCESS     = "#5ecf3e"   # success check marks and "done" headings
 FG          = "#e8edf5"
 FG2         = "#aeb9c9"
 FG3         = "#717c8f"
@@ -405,7 +406,7 @@ def yad_pick_file(title: str, filetypes: list[str], start_dir: Path,
 # ── Themed popup helper (message-only, non-GUI) ────────────────────────────────
 # Actual popup dibuat di frontend.py; ini hanya data model.
 POPUP_ICONS = {
-    "success": ("\u2713", "#5ecf3e"),
+    "success": ("\u2713", SUCCESS),
     "error":   ("\u2717", DANGER),
     "warning": ("\u26a0", WARN),
     "info":    ("\u2139", ACCENT),
@@ -1242,14 +1243,21 @@ def fetch_broker_list_bg():
 
 
 def wget_then_install_bg(url: str, dest_dir: Path, broker_name: str,
-                         on_progress, on_success, on_error, on_timeout):
-    """Unduh installer via wget, jalankan via wine, lalu hapus file .exe.
+                         on_progress, on_success, on_error, on_timeout,
+                         on_installed=None):
+    """Download an installer with wget, run it under Wine, then delete the .exe.
 
-    Callbacks:
-      on_progress(msg)           — update teks status
-      on_success(exe_name, name) — installer dijalankan, exe sudah dihapus
-      on_error(msg)              — gagal unduh atau jalankan
-      on_timeout()               — wget timeout
+    Callbacks (all fire on background threads):
+      on_progress(msg)           — status text update
+      on_success(exe_name, name) — installer was LAUNCHED. The wizard is not
+                                   silent here, so the terminal does not exist
+                                   yet; do not scan for it on this callback.
+      on_installed(name)         — installer process exited, i.e. the install is
+                                   actually done. Fires on the cleanup thread and
+                                   may be minutes after on_success. This is the
+                                   one to hang a rescan on.
+      on_error(msg)              — download or launch failed
+      on_timeout()               — wget timed out
     """
     def _run():
         try:
@@ -1302,6 +1310,13 @@ def wget_then_install_bg(url: str, dest_dir: Path, broker_name: str,
                     exe_path.unlink(missing_ok=True)
                 except Exception:
                     pass
+                # Reported even if the cleanup above failed: the caller is
+                # waiting on the install, not on the leftover .exe.
+                if on_installed:
+                    try:
+                        on_installed(broker_name)
+                    except Exception:
+                        pass
 
             threading.Thread(target=_wait_and_delete, daemon=True).start()
             on_success(exe_name, broker_name)

@@ -21,7 +21,7 @@ from widgets import (
 from system import (
     __version__,
     BG, BG2, BG3, BG4, ACCENT, ACCENT2, ACCENT3, ACCENT_DIM,
-    BORDER, BORDER2, DANGER, WARN, FG, FG2, FG3, WHITE, PURPLE,
+    BORDER, BORDER2, DANGER, WARN, SUCCESS, FG, FG2, FG3, WHITE, PURPLE,
     FONT, FONT_MONO, SIDEBAR_W,
     TABLE_FONT_SIZE, TABLE_HEADING_SIZE, TABLE_COLUMNS,
     CAT_COL_WIDTH, CAT_COLORS,
@@ -243,7 +243,7 @@ class MTManager:
         mt_wrap.pack(fill="x", pady=(0, 12))
         mt_holder, _mt_canvas = make_pill_btn(
             mt_wrap, "\u2699  Add / Remove MT", self._manage_mt_menu,
-            bg=BG3, fg="#5ecf3e", hover_bg=BG4,
+            bg=BG3, fg=SUCCESS, hover_bg=BG4,
             font_size=10, padx=12, pady=8, radius=8, fill_x=True)
         mt_holder.pack(fill="x")
         self._manage_mt_btn_holder = mt_holder
@@ -269,7 +269,7 @@ class MTManager:
             (UTILITY_LABEL, self._utility_menu, "#261a05", WARN, "#3d2a08"),
             None,  # separator
             ("\u25a6 Browse", self.browse_files, BG3, FG, BG4),
-            (OPEN_MT_LABEL, self.open_mt, "#0d2200", "#5ecf3e", "#1a3a00"),
+            (OPEN_MT_LABEL, self.open_mt, "#0d2200", SUCCESS, "#1a3a00"),
         ]
         _tooltips = {
             "\u2699 Manage EA / Indicator": "Install or remove EA / Indicator on MT",
@@ -1168,7 +1168,7 @@ class MTManager:
         fm  = self._font_mono
         ok  = not errors
         icon_ch = "\u2713" if ok else "\u26a0"
-        icon_fg = "#5ecf3e" if ok else WARN
+        icon_fg = SUCCESS if ok else WARN
         action  = "moved" if mode == "cut" else "copied"
 
         res = tk.Toplevel(self.root)
@@ -1235,10 +1235,10 @@ class MTManager:
         hdr_r = tk.Frame(res, bg=BG2, height=48); hdr_r.pack(fill="x"); hdr_r.pack_propagate(False)
         hdr_ri = tk.Frame(hdr_r, bg=BG2, padx=20); hdr_ri.pack(fill="both", expand=True)
         tk.Label(hdr_ri, text="\u2713  Install Successful",
-                 bg=BG2, fg="#5ecf3e", font=(f, 12, "bold")).pack(side="left", fill="y")
+                 bg=BG2, fg=SUCCESS, font=(f, 12, "bold")).pack(side="left", fill="y")
         tk.Frame(res, bg=BORDER, height=1).pack(fill="x")
         body_r = tk.Frame(res, bg=BG, padx=24, pady=18); body_r.pack(fill="both", expand=True)
-        tk.Label(body_r, text="\u2713", bg=BG, fg="#5ecf3e",
+        tk.Label(body_r, text="\u2713", bg=BG, fg=SUCCESS,
                  font=(f, 22)).grid(row=0, column=0, rowspan=2, padx=(0,16), sticky="n")
         tk.Label(body_r, text=f"{label} installed successfully.",
                  bg=BG, fg=FG, font=(f, 11, "bold"), anchor="w").grid(row=0, column=1, sticky="w")
@@ -1306,7 +1306,7 @@ class MTManager:
             res = tk.Toplevel(self.root); res.title("File Dihapus"); res.configure(bg=BG)
             res.resizable(False, False); res.attributes("-topmost", True)
             ok_icon = "\u2713" if not errors else "\u26a0"
-            ok_fg   = "#5ecf3e" if not errors else WARN
+            ok_fg   = SUCCESS if not errors else WARN
             hdr2 = tk.Frame(res, bg=BG2, height=48); hdr2.pack(fill="x"); hdr2.pack_propagate(False)
             hdr2i = tk.Frame(hdr2, bg=BG2, padx=20); hdr2i.pack(fill="both", expand=True)
             tk.Label(hdr2i, text=f"{ok_icon}  File Dihapus",
@@ -1540,7 +1540,7 @@ class MTManager:
             res = tk.Toplevel(self.root); res.title("Logs & History Cleared"); res.configure(bg=BG)
             res.resizable(False, False); res.attributes("-topmost", True)
             ok_icon = "\u2713" if not errors else "\u26a0"
-            ok_fg   = "#5ecf3e" if not errors else WARN
+            ok_fg   = SUCCESS if not errors else WARN
             hdr2 = tk.Frame(res, bg=BG2, height=48); hdr2.pack(fill="x"); hdr2.pack_propagate(False)
             hdr2i = tk.Frame(hdr2, bg=BG2, padx=20); hdr2i.pack(fill="both", expand=True)
             tk.Label(hdr2i, text=f"{ok_icon}  Logs & History Cleared",
@@ -1680,7 +1680,7 @@ class MTManager:
             res = tk.Toplevel(self.root); res.title(f"{noun} Cleared"); res.configure(bg=BG)
             res.resizable(False, False); res.attributes("-topmost", True)
             ok_icon = "\u2713" if not errors else "\u26a0"
-            ok_fg   = "#5ecf3e" if not errors else WARN
+            ok_fg   = SUCCESS if not errors else WARN
             hdr2 = tk.Frame(res, bg=BG2, height=48); hdr2.pack(fill="x"); hdr2.pack_propagate(False)
             hdr2i = tk.Frame(hdr2, bg=BG2, padx=20); hdr2i.pack(fill="both", expand=True)
             tk.Label(hdr2i, text=f"{ok_icon}  {noun} Cleared",
@@ -2408,7 +2408,7 @@ class MTManager:
                 _start_download(version, name, url)
 
             ok_h, _ = make_pill_btn(fi_d, "\u2b07  Yes, Install", _do_install,
-                                     bg="#0a1f0a", fg="#5ecf3e", hover_bg="#152e15",
+                                     bg="#0a1f0a", fg=SUCCESS, hover_bg="#152e15",
                                      font_size=9, padx=18, pady=6, radius=7)
             ok_h.pack(side="right", pady=8, padx=(0, 6))
             cancel_h2, _ = make_pill_btn(fi_d, "Cancel", dlg.destroy,
@@ -2439,11 +2439,22 @@ class MTManager:
                     _downloading[0] = False
                     prog_bar.set(1.0)
                     status_var.set(
-                        f"\u2713 {bname} — installer started. ")
-                    status_lbl.config(fg="#5ecf3e")
+                        f"\u2713 {bname} — installer running. Finish the wizard.")
+                    status_lbl.config(fg=SUCCESS)
                     self._status(f"Install MT {bname} started via Wine.")
-                    self.root.after(5000, lambda: self.scan_terminals(silent=True))
                 win.after(0, _done)
+
+            def _on_installed(bname):
+                """Installer process exited, so the terminal now exists on disk.
+                Fires on the cleanup thread, possibly minutes after _on_success
+                because the wizard is not silent — hence no fixed delay here."""
+                def _rescan():
+                    self._status(f"Install {bname} finished — rescanning…")
+                    self.scan_terminals(silent=True)
+                try:
+                    self.root.after(0, _rescan)
+                except Exception:
+                    pass   # app was closed while the installer was still open
 
             def _on_error(msg):
                 def _err():
@@ -2462,7 +2473,8 @@ class MTManager:
                 win.after(0, _to)
 
             be.wget_then_install_bg(url, DOCS_DIR, name,
-                                    _on_progress, _on_success, _on_error, _on_timeout)
+                                    _on_progress, _on_success, _on_error, _on_timeout,
+                                    on_installed=_on_installed)
 
         # ── Divider + Browse section ──
         tk.Frame(win, bg=BORDER, height=1).pack(fill="x")
@@ -2526,7 +2538,7 @@ class MTManager:
                         status_lbl.config(fg=WARN)
                     else:
                         status_var.set(f"\u2713  {fname} installed successfully.")
-                        status_lbl.config(fg="#5ecf3e")
+                        status_lbl.config(fg=SUCCESS)
                     self._status(f"Local MT install finished: {done}/{qty} of {fname}")
                     self.root.after(800, lambda: self.scan_terminals(silent=True))
                 win.after(0, _ui)
@@ -2537,7 +2549,7 @@ class MTManager:
             )
 
         run_h, _ = make_pill_btn(file_row, "\u2b07  Start Install", _run_install_local,
-                                  bg="#0a1f0a", fg="#5ecf3e", hover_bg="#152e15",
+                                  bg="#0a1f0a", fg=SUCCESS, hover_bg="#152e15",
                                   font_size=9, padx=14, pady=6, radius=7)
         run_h.pack(side="left")
 
@@ -2722,9 +2734,9 @@ class MTManager:
                         title_lbl.config(text=f"Finished with {len(all_errors)} error(s).", fg=WARN)
                         dir_lbl.config(text="\n".join(all_errors[:3]), fg=DANGER)
                     else:
-                        icon_lbl.config(text="\u2713", fg=WARN)
+                        icon_lbl.config(text="\u2713", fg=SUCCESS)
                         title_lbl.config(
-                            text=f"{done_cnt} duplicate(s) created & launched.\n Please Scan MetaTrader",
+                            text=f"{done_cnt} duplicate(s) created & launched.",
                             fg=FG)
                         dir_lbl.config(text="Auto-scan started.", fg=FG2)
                     self._status(f"Duplicate MT finished: {done_cnt}/{total} of {src_name}")
